@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Volume2, CheckCircle2, XCircle, RotateCcw, BookOpen, Ear, Shuffle, Star,
-  PlayCircle, Newspaper, ScrollText, Languages, Mic, MicOff, TrendingUp, Brain,
-  Download, Upload, Trophy
+  PlayCircle, ScrollText, Languages, Mic, MicOff, TrendingUp, Brain,
+  Download, Upload, Trophy, Sparkles
 } from 'lucide-react';
 import { PHRASES } from './phrases';
 
@@ -10,13 +10,13 @@ function normalizeText(s) {
   return (s || '').toLowerCase().replace(/[؟?!.,']/g, '').replace(/\s+/g, ' ').trim();
 }
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
-function getStoredProgress() { try { return JSON.parse(localStorage.getItem('arabic-dad-progress-v4') || '{}'); } catch { return {}; } }
-function saveStoredProgress(progress) { try { localStorage.setItem('arabic-dad-progress-v4', JSON.stringify(progress)); } catch {} }
+function getStoredProgress() { try { return JSON.parse(localStorage.getItem('arabic-dad-progress-v5') || '{}'); } catch { return {}; } }
+function saveStoredProgress(progress) { try { localStorage.setItem('arabic-dad-progress-v5', JSON.stringify(progress)); } catch {} }
 function getStoredMeta() {
-  try { return JSON.parse(localStorage.getItem('arabic-dad-meta-v4') || '{"lessonsCompleted":0,"lastLessonNumber":0,"accomplishments":[]}'); }
+  try { return JSON.parse(localStorage.getItem('arabic-dad-meta-v5') || '{"lessonsCompleted":0,"lastLessonNumber":0,"accomplishments":[]}'); }
   catch { return { lessonsCompleted: 0, lastLessonNumber: 0, accomplishments: [] }; }
 }
-function saveStoredMeta(meta) { try { localStorage.setItem('arabic-dad-meta-v4', JSON.stringify(meta)); } catch {} }
+function saveStoredMeta(meta) { try { localStorage.setItem('arabic-dad-meta-v5', JSON.stringify(meta)); } catch {} }
 function getItemStats(progress, id) { return progress[id] || { correct: 0, wrong: 0, mastered: false, spoken: 0 }; }
 function browserHasSpeechRecognition() {
   if (typeof window === 'undefined') return false;
@@ -44,7 +44,6 @@ function generateTasksFromPhrases(base, lessonKind = 'morning') {
     tasks.push({ type: 'mcq', item, choices: shuffle([item.english, alt1.english, alt2.english]).slice(0, 3) });
     tasks.push({ type: 'typing', item });
     tasks.push({ type: 'listen', item, choices: shuffle([item.english, alt1.english, alt2.english]).slice(0, 3) });
-
     const words = item.arabic.split(' ');
     if (words.length > 1) {
       const missingIndex = Math.min(1, words.length - 1);
@@ -63,7 +62,9 @@ function generateTasksFromPhrases(base, lessonKind = 'morning') {
   }
   return tasks.slice(0, lessonKind === 'morning' ? 40 : 32);
 }
-function buildLessonItems(pool, lessonKind = 'morning') { return generateTasksFromPhrases(shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7), lessonKind); }
+function buildLessonItems(pool, lessonKind = 'morning') {
+  return generateTasksFromPhrases(shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7), lessonKind);
+}
 function sanitizeImportedPhrase(p, idx) {
   return {
     id: p.id ?? (100000 + idx),
@@ -106,6 +107,10 @@ export default function App() {
   const [importError, setImportError] = useState('');
   const [externalLessonInfo, setExternalLessonInfo] = useState(null);
   const [lessonNumber, setLessonNumber] = useState(1);
+  const [theme, setTheme] = useState('mixed');
+  const [difficulty, setDifficulty] = useState('A2/B1/B2');
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
   const dailyGoal = 2;
@@ -126,7 +131,7 @@ export default function App() {
     const pool = adaptiveMode ? buildAdaptivePool(PHRASES, progress, track) : shuffle(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track));
     setExternalLessonInfo(null);
     setLesson(buildLessonItems(pool, lessonKind));
-    setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setSpokenText(''); setVoiceFeedback(null); setIsListening(false); setImportError('');
+    setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setSpokenText(''); setVoiceFeedback(null); setIsListening(false); setImportError(''); setGenerateError('');
   }, [adaptiveMode, progress, track, lessonKind]);
   useEffect(() => { rebuildLesson(); }, [rebuildLesson]);
 
@@ -137,7 +142,6 @@ export default function App() {
   const correctToday = useMemo(() => Object.values(progress).reduce((acc, p) => acc + (p?.correct || 0), 0), [progress]);
   const overallProgress = Math.min(100, Math.round((masteredCount / PHRASES.length) * 100));
   const lessonProgress = lesson.length ? Math.round((Math.min(stepIndex, lesson.length) / lesson.length) * 100) : 0;
-
   const categoryStats = useMemo(() => {
     const cats = [...new Set(PHRASES.map((p) => p.category))];
     return cats.slice(0, 12).map((cat) => {
@@ -150,8 +154,7 @@ export default function App() {
   const speak = (text) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ar-SA';
-    utter.rate = 0.8;
+    utter.lang = 'ar-SA'; utter.rate = 0.8;
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   };
@@ -205,7 +208,7 @@ export default function App() {
   };
   const stopVoicePractice = () => { recognitionRef.current?.stop?.(); setIsListening(false); };
   const resetAll = () => {
-    localStorage.removeItem('arabic-dad-progress-v4'); localStorage.removeItem('arabic-dad-meta-v4');
+    localStorage.removeItem('arabic-dad-progress-v5'); localStorage.removeItem('arabic-dad-meta-v5');
     setProgress({}); setMeta({ lessonsCompleted: 0, lastLessonNumber: 0, accomplishments: [] }); setLessonNumber(1); rebuildLesson();
   };
   const weakPractice = () => {
@@ -218,26 +221,36 @@ export default function App() {
       const phrases = importLessonJson(importText);
       if (!phrases.length) throw new Error('No usable source phrases found in the JSON.');
       setLesson(generateTasksFromPhrases(phrases, lessonKind));
-      setExternalLessonInfo({ count: phrases.length, source: 'GPT lesson' });
-      setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setImportError(''); setMode('lesson');
+      setExternalLessonInfo({ count: phrases.length, source: 'Imported lesson' });
+      setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setImportError(''); setGenerateError(''); setMode('lesson');
     } catch (err) { setImportError(err.message || 'Could not load the lesson JSON.'); }
   };
-
-  const sampleJson = `{
-  "title": "Morning Arabic Lesson",
-  "source_phrases": [
-    {
-      "id": 1,
-      "track": "Reading Arabic",
-      "category": "Culture",
-      "level": "B1",
-      "arabic": "تَحْمِلُ الْمُدُنُ الْقَدِيمَةُ ذَاكِرَةً طَوِيلَةً",
-      "transliteration": "Taḥmilu al-mudunu al-qadīma dhākiratan ṭawīla",
-      "english": "Old cities carry a long memory",
-      "notes": "A reflective cultural sentence."
+  const generateLesson = async () => {
+    try {
+      setGenerating(true);
+      setGenerateError('');
+      setImportError('');
+      const response = await fetch('/api/generate-lesson', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lesson_kind: lessonKind, theme, difficulty, task_target: lessonKind === 'morning' ? 40 : 32 })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Lesson generation failed.');
+      const sourcePhrases = (data.source_phrases || data.phrases || []).map(sanitizeImportedPhrase).filter(p => p.arabic && p.english);
+      if (!sourcePhrases.length) throw new Error('No lesson phrases were returned.');
+      setLesson(generateTasksFromPhrases(sourcePhrases, lessonKind));
+      setExternalLessonInfo({ count: sourcePhrases.length, source: 'API lesson' });
+      setImportText(JSON.stringify(data, null, 2));
+      setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setMode('lesson');
+    } catch (err) {
+      setGenerateError(err.message || 'Could not generate a lesson.');
+    } finally {
+      setGenerating(false);
     }
-  ]
-}`;
+  };
+
+  const sampleJson = `{\n  "title": "Morning Arabic Lesson",\n  "source_phrases": [\n    {\n      "id": 1,\n      "track": "Reading Arabic",\n      "category": "Culture",\n      "level": "B1",\n      "arabic": "تَحْمِلُ الْمُدُنُ الْقَدِيمَةُ ذَاكِرَةً طَوِيلَةً",\n      "transliteration": "Taḥmilu al-mudunu al-qadīma dhākiratan ṭawīla",\n      "english": "Old cities carry a long memory",\n      "notes": "A reflective cultural sentence."\n    }\n  ]\n}`;
 
   const renderLessonStep = () => {
     if (!currentStep) return null;
@@ -317,35 +330,52 @@ export default function App() {
   return <div className="app-shell">
     <div className="app-container">
       <div className="card">
-        <div className="card-header">
-          <div><h1>Arabic Companion</h1><p>A calm Arabic learning companion.</p></div>
-        </div>
+        <div className="card-header"><div><h1>Arabic Companion</h1><p>A calm Arabic learning companion.</p></div></div>
         <div className="stats-grid stats-grid-4">
           <div className="mini-card"><span>Mastered</span><strong>{masteredCount}</strong></div>
           <div className="mini-card"><span>Daily lessons</span><strong>{dailyGoal}</strong></div>
           <div className="mini-card"><span>Library size</span><strong>{PHRASES.length}</strong></div>
           <div className="mini-card"><span>Lesson no.</span><strong>{lessonNumber}</strong></div>
         </div>
-        <div className="progress-block">
-          <div className="row-between"><span>Overall progress</span><span>{overallProgress}%</span></div>
-          <div className="progress-bar"><div style={{ width: `${overallProgress}%` }} /></div>
-        </div>
-        <div className="progress-card">
-          <div className="row-between"><span>Current lesson</span><span>{lessonProgress}%</span></div>
-          <div className="progress-bar thin"><div style={{ width: `${lessonProgress}%` }} /></div>
-        </div>
+        <div className="progress-block"><div className="row-between"><span>Overall progress</span><span>{overallProgress}%</span></div><div className="progress-bar"><div style={{ width: `${overallProgress}%` }} /></div></div>
+        <div className="progress-card"><div className="row-between"><span>Current lesson</span><span>{lessonProgress}%</span></div><div className="progress-bar thin"><div style={{ width: `${lessonProgress}%` }} /></div></div>
       </div>
 
       <div className="card">
-        <div className="row title-row"><Upload size={16} /> <strong>Load GPT lesson</strong></div>
-        <p className="muted">Paste the JSON from your Arabic Lesson Factory here. The app will turn the source phrases into a full lesson automatically.</p>
+        <div className="row title-row"><Sparkles size={16} /> <strong>Generate lesson</strong></div>
+        <p className="muted">Tap once and the app will create a full lesson using the permanent lesson prompt on the server.</p>
+        <div className="button-grid-2 top-gap">
+          <select className="text-input" value={theme} onChange={(e) => setTheme(e.target.value)}>
+            <option value="mixed">Mixed</option>
+            <option value="daily life">Daily life</option>
+            <option value="travel">Travel</option>
+            <option value="reading">Reading</option>
+            <option value="history and culture">History and culture</option>
+            <option value="proverbs and idioms">Proverbs and idioms</option>
+          </select>
+          <select className="text-input" value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
+            <option value="A2/B1/B2">A2/B1/B2</option>
+            <option value="B1 focused">B1 focused</option>
+            <option value="B1/B2">B1/B2</option>
+          </select>
+        </div>
+        <div className="button-grid-2 top-gap">
+          <Button onClick={generateLesson} disabled={generating}>{generating ? 'Generating...' : <><Sparkles size={16} /> Generate lesson</>}</Button>
+          <Button secondary onClick={rebuildLesson}>Use built-in lesson</Button>
+        </div>
+        {generateError ? <div className="error-msg top-gap">{generateError}</div> : null}
+      </div>
+
+      <div className="card">
+        <div className="row title-row"><Upload size={16} /> <strong>Load lesson manually</strong></div>
+        <p className="muted">You can still paste JSON from your Arabic Lesson Factory here if you want to override the generated lesson.</p>
         <textarea className="json-box" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={sampleJson} />
         <div className="button-grid-2 top-gap">
           <Button onClick={loadImportedLesson}><Download size={16} /> Load lesson</Button>
           <Button secondary onClick={() => setImportText(sampleJson)}>Paste sample</Button>
         </div>
         {importError ? <div className="error-msg top-gap">{importError}</div> : null}
-        {externalLessonInfo ? <div className="ok-msg top-gap">Loaded {externalLessonInfo.count} source phrases from GPT.</div> : null}
+        {externalLessonInfo ? <div className="ok-msg top-gap">Loaded {externalLessonInfo.count} source phrases from {externalLessonInfo.source}.</div> : null}
       </div>
 
       <div className="card">
@@ -372,9 +402,9 @@ export default function App() {
         {lessonComplete ? <div className="lesson-center">
           <div className="title-big">Lesson {lessonNumber - 1} complete 🎉</div>
           <div className="muted">A clean stopping point, just like Duolingo.</div>
-          <div className="stack top-gap"><Button onClick={rebuildLesson}>Start next lesson</Button><Button secondary onClick={() => setMode('review')}>Go to review</Button></div>
+          <div className="stack top-gap"><Button onClick={generateLesson}>Generate next lesson</Button><Button secondary onClick={() => setMode('review')}>Go to review</Button></div>
         </div> : <>
-          <div className="row-between"><span className="pill soft">Lesson {lessonNumber} · Step {stepIndex + 1} / {lesson.length}</span><span className="muted">{externalLessonInfo ? 'GPT lesson' : current.track}</span></div>
+          <div className="row-between"><span className="pill soft">Lesson {lessonNumber} · Step {stepIndex + 1} / {lesson.length}</span><span className="muted">{externalLessonInfo ? externalLessonInfo.source : current.track}</span></div>
           <div className="top-gap">{renderLessonStep()}</div>
         </>}
       </div>}
@@ -423,10 +453,10 @@ export default function App() {
       <div className="card">
         <div className="row title-row"><Languages size={16} /> <strong>What this version now does</strong></div>
         <ul className="feature-list">
-          <li>Loads source phrases from your GPT and expands them into a full lesson automatically</li>
+          <li>Generates a lesson with one tap through a server-side API call</li>
+          <li>Keeps the permanent lesson prompt on the server, not in the browser</li>
+          <li>Still allows manual JSON paste as a fallback</li>
           <li>Numbers each lesson and records lessons completed</li>
-          <li>Tracks accomplishments to make progress more motivating</li>
-          <li>Removes references to age, elderly, or older learners</li>
           <li>Keeps phrasebook, review, listening, and voice practice in one app</li>
         </ul>
       </div>
