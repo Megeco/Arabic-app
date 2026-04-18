@@ -1,99 +1,89 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Volume2, CheckCircle2, XCircle, RotateCcw, BookOpen, Ear, Shuffle, Star,
-  PlayCircle, Newspaper, ScrollText, Languages, Mic, MicOff, TrendingUp, Brain
+  PlayCircle, Newspaper, ScrollText, Languages, Mic, MicOff, TrendingUp, Brain,
+  Download, Upload, Trophy
 } from 'lucide-react';
 import { PHRASES } from './phrases';
 
 function normalizeText(s) {
-  return (s || '')
-    .toLowerCase()
-    .replace(/[؟?!.,']/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (s || '').toLowerCase().replace(/[؟?!.,']/g, '').replace(/\s+/g, ' ').trim();
 }
-
-function shuffle(arr) {
-  return [...arr].sort(() => Math.random() - 0.5);
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+function getStoredProgress() { try { return JSON.parse(localStorage.getItem('arabic-dad-progress-v4') || '{}'); } catch { return {}; } }
+function saveStoredProgress(progress) { try { localStorage.setItem('arabic-dad-progress-v4', JSON.stringify(progress)); } catch {} }
+function getStoredMeta() {
+  try { return JSON.parse(localStorage.getItem('arabic-dad-meta-v4') || '{"lessonsCompleted":0,"lastLessonNumber":0,"accomplishments":[]}'); }
+  catch { return { lessonsCompleted: 0, lastLessonNumber: 0, accomplishments: [] }; }
 }
-
-function getStoredProgress() {
-  try {
-    const raw = localStorage.getItem('arabic-dad-progress-v3');
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveStoredProgress(progress) {
-  try {
-    localStorage.setItem('arabic-dad-progress-v3', JSON.stringify(progress));
-  } catch {}
-}
-
-function getItemStats(progress, id) {
-  return progress[id] || { correct: 0, wrong: 0, mastered: false, spoken: 0 };
-}
-
-function buildAdaptivePool(phrases, progress, track) {
-  const filtered = track === 'All Tracks' ? phrases : phrases.filter((p) => p.track === track);
-  const weak = filtered.filter((p) => {
-    const s = getItemStats(progress, p.id);
-    return s.wrong >= s.correct || (!s.mastered && s.correct <= 1);
-  });
-  const fresh = filtered.filter((p) => {
-    const s = getItemStats(progress, p.id);
-    return s.correct === 0 && s.wrong === 0;
-  });
-  const strong = filtered.filter((p) => getItemStats(progress, p.id).mastered);
-  const steady = filtered.filter((p) => !weak.includes(p) && !fresh.includes(p) && !strong.includes(p));
-  const mixed = [
-    ...shuffle(weak).slice(0, 6),
-    ...shuffle(fresh).slice(0, 6),
-    ...shuffle(steady).slice(0, 6),
-    ...shuffle(strong).slice(0, 3),
-  ];
-  return mixed.length ? mixed : shuffle(filtered);
-}
-
-function buildLessonItems(pool, lessonKind = 'morning') {
-  const base = shuffle(pool).slice(0, lessonKind === 'morning' ? 6 : 5);
-  if (!base.length) return [];
-  const [first, second = base[0], third = base[0], fourth = base[1] || base[0], fifth = base[2] || base[0]] = base;
-  if (lessonKind === 'morning') {
-    return [
-      { type: 'learn', item: first },
-      { type: 'learn', item: second },
-      { type: 'mcq', item: first, choices: shuffle([first.english, second.english, third.english]).slice(0, 3) },
-      { type: 'typing', item: second },
-      { type: 'learn', item: third },
-      { type: 'listen', item: third, choices: shuffle([third.english, fourth.english, fifth.english]).slice(0, 3) },
-      { type: 'reading', item: fourth },
-      { type: 'review', item: fifth },
-    ];
-  }
-  return [
-    { type: 'review', item: first },
-    { type: 'typing', item: second },
-    { type: 'mcq', item: third, choices: shuffle([third.english, first.english, second.english]).slice(0, 3) },
-    { type: 'listen', item: first, choices: shuffle([first.english, second.english, fourth.english]).slice(0, 3) },
-    { type: 'reading', item: fourth },
-    { type: 'review', item: fifth },
-  ];
-}
-
+function saveStoredMeta(meta) { try { localStorage.setItem('arabic-dad-meta-v4', JSON.stringify(meta)); } catch {} }
+function getItemStats(progress, id) { return progress[id] || { correct: 0, wrong: 0, mastered: false, spoken: 0 }; }
 function browserHasSpeechRecognition() {
   if (typeof window === 'undefined') return false;
   return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 }
+function buildAdaptivePool(phrases, progress, track) {
+  const filtered = track === 'All Tracks' ? phrases : phrases.filter((p) => p.track === track);
+  const weak = filtered.filter((p) => { const s = getItemStats(progress, p.id); return s.wrong >= s.correct || (!s.mastered && s.correct <= 1); });
+  const fresh = filtered.filter((p) => { const s = getItemStats(progress, p.id); return s.correct === 0 && s.wrong === 0; });
+  const strong = filtered.filter((p) => getItemStats(progress, p.id).mastered);
+  const steady = filtered.filter((p) => !weak.includes(p) && !fresh.includes(p) && !strong.includes(p));
+  const mixed = [...shuffle(weak).slice(0, 8), ...shuffle(fresh).slice(0, 8), ...shuffle(steady).slice(0, 8), ...shuffle(strong).slice(0, 4)];
+  return mixed.length ? mixed : shuffle(filtered);
+}
+function generateTasksFromPhrases(base, lessonKind = 'morning') {
+  if (!base.length) return [];
+  const tasks = [];
+  const selected = base.slice(0, lessonKind === 'morning' ? 8 : 7);
+  const others = shuffle(selected);
+  for (let i = 0; i < selected.length; i++) {
+    const item = selected[i];
+    const alt1 = others[(i + 1) % others.length] || item;
+    const alt2 = others[(i + 2) % others.length] || item;
+    if (lessonKind === 'morning' || i < 3) tasks.push({ type: 'learn', item });
+    tasks.push({ type: 'mcq', item, choices: shuffle([item.english, alt1.english, alt2.english]).slice(0, 3) });
+    tasks.push({ type: 'typing', item });
+    tasks.push({ type: 'listen', item, choices: shuffle([item.english, alt1.english, alt2.english]).slice(0, 3) });
 
-function IconButton({ children, onClick, secondary = false, disabled = false }) {
-  return (
-    <button className={`button ${secondary ? 'button-secondary' : 'button-primary'}`} onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  );
+    const words = item.arabic.split(' ');
+    if (words.length > 1) {
+      const missingIndex = Math.min(1, words.length - 1);
+      const answer = words[missingIndex];
+      const promptWords = [...words];
+      promptWords[missingIndex] = '_____';
+      tasks.push({
+        type: 'fill_blank',
+        item,
+        promptArabic: promptWords.join(' '),
+        blankAnswer: answer,
+        options: shuffle([answer, alt1.arabic.split(' ')[0] || answer, alt2.arabic.split(' ')[0] || answer]).slice(0, 3)
+      });
+    }
+    tasks.push({ type: 'review', item });
+  }
+  return tasks.slice(0, lessonKind === 'morning' ? 40 : 32);
+}
+function buildLessonItems(pool, lessonKind = 'morning') { return generateTasksFromPhrases(shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7), lessonKind); }
+function sanitizeImportedPhrase(p, idx) {
+  return {
+    id: p.id ?? (100000 + idx),
+    track: p.track || 'Imported Lesson',
+    category: p.category || 'Generated',
+    level: p.level || 'B1',
+    arabic: p.arabic || '',
+    transliteration: p.transliteration || '',
+    english: p.english || '',
+    answer: (p.answer || p.english || '').toLowerCase(),
+    notes: p.notes || 'Imported lesson phrase.'
+  };
+}
+function importLessonJson(rawText) {
+  const parsed = JSON.parse(rawText);
+  const sourcePhrases = Array.isArray(parsed) ? parsed : (parsed.source_phrases || parsed.phrases || []);
+  return sourcePhrases.map(sanitizeImportedPhrase).filter(p => p.arabic && p.english);
+}
+function Button({ children, onClick, secondary = false, disabled = false }) {
+  return <button className={`button ${secondary ? 'button-secondary' : 'button-primary'}`} onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
 export default function App() {
@@ -101,6 +91,7 @@ export default function App() {
   const [track, setTrack] = useState('All Tracks');
   const [lessonKind, setLessonKind] = useState('morning');
   const [progress, setProgress] = useState({});
+  const [meta, setMeta] = useState({ lessonsCompleted: 0, lastLessonNumber: 0, accomplishments: [] });
   const [adaptiveMode, setAdaptiveMode] = useState(true);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [lesson, setLesson] = useState([]);
@@ -111,44 +102,37 @@ export default function App() {
   const [spokenText, setSpokenText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceFeedback, setVoiceFeedback] = useState(null);
+  const [importText, setImportText] = useState('');
+  const [importError, setImportError] = useState('');
+  const [externalLessonInfo, setExternalLessonInfo] = useState(null);
+  const [lessonNumber, setLessonNumber] = useState(1);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
   const dailyGoal = 2;
-  const streak = 4;
 
   useEffect(() => {
     setProgress(getStoredProgress());
+    const storedMeta = getStoredMeta();
+    setMeta(storedMeta);
+    setLessonNumber((storedMeta.lastLessonNumber || 0) + 1);
     setVoiceSupported(browserHasSpeechRecognition());
   }, []);
-
-  useEffect(() => {
-    saveStoredProgress(progress);
-  }, [progress]);
+  useEffect(() => { saveStoredProgress(progress); }, [progress]);
+  useEffect(() => { saveStoredMeta(meta); }, [meta]);
 
   const tracks = ['All Tracks', ...new Set(PHRASES.map((p) => p.track))];
 
   const rebuildLesson = useCallback(() => {
-    const pool = adaptiveMode
-      ? buildAdaptivePool(PHRASES, progress, track)
-      : shuffle(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track));
+    const pool = adaptiveMode ? buildAdaptivePool(PHRASES, progress, track) : shuffle(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track));
+    setExternalLessonInfo(null);
     setLesson(buildLessonItems(pool, lessonKind));
-    setStepIndex(0);
-    setInput('');
-    setFeedback(null);
-    setShowAnswer(false);
-    setSpokenText('');
-    setVoiceFeedback(null);
-    setIsListening(false);
+    setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setSpokenText(''); setVoiceFeedback(null); setIsListening(false); setImportError('');
   }, [adaptiveMode, progress, track, lessonKind]);
-
-  useEffect(() => {
-    rebuildLesson();
-  }, [rebuildLesson]);
+  useEffect(() => { rebuildLesson(); }, [rebuildLesson]);
 
   const currentStep = lesson[stepIndex] || null;
   const current = currentStep?.item || PHRASES[0];
   const lessonComplete = lesson.length > 0 && stepIndex >= lesson.length;
-
   const masteredCount = useMemo(() => Object.values(progress).filter((p) => p?.mastered).length, [progress]);
   const correctToday = useMemo(() => Object.values(progress).reduce((acc, p) => acc + (p?.correct || 0), 0), [progress]);
   const overallProgress = Math.min(100, Math.round((masteredCount / PHRASES.length) * 100));
@@ -156,7 +140,7 @@ export default function App() {
 
   const categoryStats = useMemo(() => {
     const cats = [...new Set(PHRASES.map((p) => p.category))];
-    return cats.map((cat) => {
+    return cats.slice(0, 12).map((cat) => {
       const items = PHRASES.filter((p) => p.category === cat);
       const mastered = items.filter((p) => progress[p.id]?.mastered).length;
       return { cat, total: items.length, mastered };
@@ -171,366 +155,281 @@ export default function App() {
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utter);
   };
-
   const markProgress = (isCorrect, spoken = false) => {
     setProgress((prev) => {
       const prevItem = getItemStats(prev, current.id);
-      const updated = {
-        ...prevItem,
-        correct: prevItem.correct + (isCorrect ? 1 : 0),
-        wrong: prevItem.wrong + (isCorrect ? 0 : 1),
-        spoken: prevItem.spoken + (spoken ? 1 : 0),
-      };
+      const updated = { ...prevItem, correct: prevItem.correct + (isCorrect ? 1 : 0), wrong: prevItem.wrong + (isCorrect ? 0 : 1), spoken: prevItem.spoken + (spoken ? 1 : 0) };
       updated.mastered = updated.correct >= 3 && updated.correct > updated.wrong;
       return { ...prev, [current.id]: updated };
     });
   };
-
+  const registerLessonCompletion = () => {
+    setMeta((prev) => {
+      const nextCompleted = prev.lessonsCompleted + 1;
+      const nextAcc = [...(prev.accomplishments || [])];
+      if (nextCompleted === 1 && !nextAcc.includes('Completed Lesson 1')) nextAcc.push('Completed Lesson 1');
+      if (nextCompleted === 7 && !nextAcc.includes('Completed 7 lessons')) nextAcc.push('Completed 7 lessons');
+      if (nextCompleted === 30 && !nextAcc.includes('Completed 30 lessons')) nextAcc.push('Completed 30 lessons');
+      if (masteredCount >= 25 && !nextAcc.includes('Mastered 25 phrases')) nextAcc.push('Mastered 25 phrases');
+      return { lessonsCompleted: nextCompleted, lastLessonNumber: lessonNumber, accomplishments: nextAcc };
+    });
+    setLessonNumber((n) => n + 1);
+  };
   const goNext = () => {
-    setInput('');
-    setFeedback(null);
-    setShowAnswer(false);
-    setSpokenText('');
-    setVoiceFeedback(null);
-    setStepIndex((s) => s + 1);
+    setInput(''); setFeedback(null); setShowAnswer(false); setSpokenText(''); setVoiceFeedback(null);
+    setStepIndex((s) => { const next = s + 1; if (next >= lesson.length) registerLessonCompletion(); return next; });
     setTimeout(() => inputRef.current?.focus(), 80);
   };
-
   const checkTyping = () => {
     const ok = normalizeText(input) === normalizeText(current.answer) || normalizeText(input) === normalizeText(current.english);
-    setFeedback(ok ? 'correct' : 'wrong');
-    markProgress(ok);
+    setFeedback(ok ? 'correct' : 'wrong'); markProgress(ok);
   };
-
   const checkChoice = (choice) => {
-    const ok = normalizeText(choice) === normalizeText(current.english);
-    setFeedback(ok ? 'correct' : 'wrong');
-    markProgress(ok);
+    const ok = normalizeText(choice) === normalizeText(current.english) || normalizeText(choice) === normalizeText(currentStep.blankAnswer);
+    setFeedback(ok ? 'correct' : 'wrong'); markProgress(ok);
   };
-
   const startVoicePractice = () => {
     if (!voiceSupported || typeof window === 'undefined') return;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return;
-    const recognition = new SR();
-    recognition.lang = 'ar-SA';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onstart = () => {
-      setIsListening(true);
-      setSpokenText('');
-      setVoiceFeedback(null);
-    };
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+    const recognition = new SR(); recognition.lang = 'ar-SA'; recognition.interimResults = false; recognition.maxAlternatives = 1;
+    recognition.onstart = () => { setIsListening(true); setSpokenText(''); setVoiceFeedback(null); };
     recognition.onresult = (event) => {
       const transcript = event.results?.[0]?.[0]?.transcript || '';
       setSpokenText(transcript);
       const ok = normalizeText(transcript) === normalizeText(current.arabic);
-      setVoiceFeedback(ok ? 'correct' : 'heard');
-      markProgress(ok, true);
+      setVoiceFeedback(ok ? 'correct' : 'heard'); markProgress(ok, true);
     };
-    recognition.onerror = () => {
-      setVoiceFeedback('error');
-      setIsListening(false);
-    };
+    recognition.onerror = () => { setVoiceFeedback('error'); setIsListening(false); };
     recognition.onend = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    recognition.start();
+    recognitionRef.current = recognition; recognition.start();
   };
-
-  const stopVoicePractice = () => {
-    recognitionRef.current?.stop?.();
-    setIsListening(false);
-  };
-
+  const stopVoicePractice = () => { recognitionRef.current?.stop?.(); setIsListening(false); };
   const resetAll = () => {
-    localStorage.removeItem('arabic-dad-progress-v3');
-    setProgress({});
-    rebuildLesson();
+    localStorage.removeItem('arabic-dad-progress-v4'); localStorage.removeItem('arabic-dad-meta-v4');
+    setProgress({}); setMeta({ lessonsCompleted: 0, lastLessonNumber: 0, accomplishments: [] }); setLessonNumber(1); rebuildLesson();
+  };
+  const weakPractice = () => {
+    const weakPool = PHRASES.filter((p) => { const s = getItemStats(progress, p.id); return s.wrong >= s.correct || !s.mastered; });
+    setExternalLessonInfo(null); setLesson(generateTasksFromPhrases(shuffle(weakPool.length ? weakPool : PHRASES).slice(0, 8), 'evening'));
+    setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false);
+  };
+  const loadImportedLesson = () => {
+    try {
+      const phrases = importLessonJson(importText);
+      if (!phrases.length) throw new Error('No usable source phrases found in the JSON.');
+      setLesson(generateTasksFromPhrases(phrases, lessonKind));
+      setExternalLessonInfo({ count: phrases.length, source: 'GPT lesson' });
+      setStepIndex(0); setInput(''); setFeedback(null); setShowAnswer(false); setImportError(''); setMode('lesson');
+    } catch (err) { setImportError(err.message || 'Could not load the lesson JSON.'); }
   };
 
-  const weakPractice = () => {
-    const weakPool = PHRASES.filter((p) => {
-      const s = getItemStats(progress, p.id);
-      return s.wrong >= s.correct || !s.mastered;
-    });
-    setLesson(buildLessonItems(shuffle(weakPool.length ? weakPool : PHRASES), 'evening'));
-    setStepIndex(0);
-    setInput('');
-    setFeedback(null);
-    setShowAnswer(false);
-  };
+  const sampleJson = `{
+  "title": "Morning Arabic Lesson",
+  "source_phrases": [
+    {
+      "id": 1,
+      "track": "Reading Arabic",
+      "category": "Culture",
+      "level": "B1",
+      "arabic": "تَحْمِلُ الْمُدُنُ الْقَدِيمَةُ ذَاكِرَةً طَوِيلَةً",
+      "transliteration": "Taḥmilu al-mudunu al-qadīma dhākiratan ṭawīla",
+      "english": "Old cities carry a long memory",
+      "notes": "A reflective cultural sentence."
+    }
+  ]
+}`;
 
   const renderLessonStep = () => {
     if (!currentStep) return null;
-
     if (currentStep.type === 'learn' || currentStep.type === 'review' || currentStep.type === 'reading') {
-      return (
-        <div className="space-y">
-          <div className="row-between">
-            <span className="pill soft">{current.category}</span>
-            <span className="pill">{current.level}</span>
-          </div>
-          <div className="lesson-center">
-            <div className="arabic-big" dir="rtl">{current.arabic}</div>
-            <div className="translit">{current.transliteration}</div>
-            <div className="english-big">{current.english}</div>
-            <div className="muted">{current.notes}</div>
-          </div>
-          <div className="center">
-            <IconButton secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</IconButton>
-          </div>
-          <div className="stack">
-            {voiceSupported && (
-              <div className="subpanel">
-                <div className="panel-title">Say the Arabic aloud</div>
-                <div className="button-grid-2">
-                  <IconButton secondary onClick={isListening ? stopVoicePractice : startVoicePractice}>
-                    {isListening ? <MicOff size={16} /> : <Mic size={16} />} {isListening ? 'Stop' : 'Voice practice'}
-                  </IconButton>
-                  <IconButton secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Hear again</IconButton>
-                </div>
-                {spokenText && <div className="muted top-gap">Heard: {spokenText}</div>}
-                {voiceFeedback === 'correct' && <div className="ok-msg top-gap">Good pronunciation match.</div>}
-                {voiceFeedback === 'heard' && <div className="muted top-gap">Good try. The phrase sounded a bit different.</div>}
-                {voiceFeedback === 'error' && <div className="error-msg top-gap">Voice input did not work this time.</div>}
-              </div>
-            )}
-            <IconButton onClick={goNext}>Continue</IconButton>
-          </div>
+      return <div className="space-y">
+        <div className="row-between"><span className="pill soft">{current.category}</span><span className="pill">{current.level}</span></div>
+        <div className="lesson-center">
+          <div className="arabic-big" dir="rtl">{current.arabic}</div>
+          <div className="translit">{current.transliteration}</div>
+          <div className="english-big">{current.english}</div>
+          <div className="muted">{current.notes}</div>
         </div>
-      );
+        <div className="center"><Button secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</Button></div>
+        <div className="stack">
+          {voiceSupported && <div className="subpanel">
+            <div className="panel-title">Say the Arabic aloud</div>
+            <div className="button-grid-2">
+              <Button secondary onClick={isListening ? stopVoicePractice : startVoicePractice}>{isListening ? <MicOff size={16} /> : <Mic size={16} />} {isListening ? 'Stop' : 'Voice practice'}</Button>
+              <Button secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Hear again</Button>
+            </div>
+            {spokenText && <div className="muted top-gap">Heard: {spokenText}</div>}
+            {voiceFeedback === 'correct' && <div className="ok-msg top-gap">Good pronunciation match.</div>}
+            {voiceFeedback === 'heard' && <div className="muted top-gap">Good try. The phrase sounded a bit different.</div>}
+            {voiceFeedback === 'error' && <div className="error-msg top-gap">Voice input did not work this time.</div>}
+          </div>}
+          <Button onClick={goNext}>Continue</Button>
+        </div>
+      </div>;
     }
-
     if (currentStep.type === 'typing') {
-      return (
-        <div className="space-y">
-          <div className="row-between">
-            <span className="pill soft">Typing</span>
-            <span className="pill">{current.level}</span>
-          </div>
-          <div className="lesson-center">
+      return <div className="space-y">
+        <div className="row-between"><span className="pill soft">Typing</span><span className="pill">{current.level}</span></div>
+        <div className="lesson-center">
+          <div className="arabic-big" dir="rtl">{current.arabic}</div>
+          <div className="translit">{current.transliteration}</div>
+          <div className="muted">Type the meaning in English</div>
+        </div>
+        <div className="center"><Button secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</Button></div>
+        <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type in English" className="text-input" />
+        <div className="button-grid-2"><Button onClick={checkTyping}>Check</Button><Button secondary onClick={() => setShowAnswer(true)}>Show answer</Button></div>
+        {showAnswer && <div className="subpanel"><div className="english-big">{current.english}</div></div>}
+        {feedback === 'correct' && <div className="feedback ok"><CheckCircle2 size={20} /> <div><strong>Correct</strong><div className="muted">Nicely done.</div></div></div>}
+        {feedback === 'wrong' && <div className="feedback error"><XCircle size={20} /> <div><strong>Not quite</strong><div className="muted">Answer: {current.english}</div></div></div>}
+        <Button secondary onClick={goNext}>Next step</Button>
+      </div>;
+    }
+    if (currentStep.type === 'mcq' || currentStep.type === 'listen' || currentStep.type === 'fill_blank') {
+      const isListen = currentStep.type === 'listen';
+      const isBlank = currentStep.type === 'fill_blank';
+      return <div className="space-y">
+        <div className="row-between"><span className="pill soft">{isListen ? 'Listening' : isBlank ? 'Fill in the blank' : 'Choose the meaning'}</span><span className="pill">{current.level}</span></div>
+        <div className="lesson-center">
+          {isListen ? <>
+            <div className="muted">Tap to hear the Arabic, then choose the meaning.</div>
+            <Button secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</Button>
+          </> : isBlank ? <>
+            <div className="arabic-big" dir="rtl">{currentStep.promptArabic}</div>
+            <div className="muted">Choose the missing Arabic word.</div>
+          </> : <>
             <div className="arabic-big" dir="rtl">{current.arabic}</div>
             <div className="translit">{current.transliteration}</div>
-            <div className="muted">Type the meaning in English</div>
-          </div>
-          <div className="center">
-            <IconButton secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</IconButton>
-          </div>
-          <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type in English" className="text-input" />
-          <div className="button-grid-2">
-            <IconButton onClick={checkTyping}>Check</IconButton>
-            <IconButton secondary onClick={() => setShowAnswer(true)}>Show answer</IconButton>
-          </div>
-          {showAnswer && <div className="subpanel"><div className="english-big">{current.english}</div></div>}
-          {feedback === 'correct' && <div className="feedback ok"><CheckCircle2 size={20} /> <div><strong>Correct</strong><div className="muted">Nicely done.</div></div></div>}
-          {feedback === 'wrong' && <div className="feedback error"><XCircle size={20} /> <div><strong>Not quite</strong><div className="muted">Answer: {current.english}</div></div></div>}
-          <IconButton secondary onClick={goNext}>Next step</IconButton>
+          </>}
         </div>
-      );
-    }
-
-    if (currentStep.type === 'mcq' || currentStep.type === 'listen') {
-      const isListen = currentStep.type === 'listen';
-      return (
-        <div className="space-y">
-          <div className="row-between">
-            <span className="pill soft">{isListen ? 'Listening' : 'Choose the meaning'}</span>
-            <span className="pill">{current.level}</span>
-          </div>
-          <div className="lesson-center">
-            {isListen ? (
-              <>
-                <div className="muted">Tap to hear the Arabic, then choose the meaning.</div>
-                <IconButton secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</IconButton>
-              </>
-            ) : (
-              <>
-                <div className="arabic-big" dir="rtl">{current.arabic}</div>
-                <div className="translit">{current.transliteration}</div>
-              </>
-            )}
-          </div>
-          <div className="stack">
-            {currentStep.choices.map((choice) => (
-              <button key={choice} className="choice-button" onClick={() => checkChoice(choice)}>{choice}</button>
-            ))}
-          </div>
-          {feedback === 'correct' && <div className="feedback ok"><CheckCircle2 size={20} /> <div><strong>Correct</strong><div className="muted">That is right.</div></div></div>}
-          {feedback === 'wrong' && <div className="feedback error"><XCircle size={20} /> <div><strong>Not quite</strong><div className="muted">Correct answer: {current.english}</div></div></div>}
-          <IconButton secondary onClick={goNext}>Next step</IconButton>
+        <div className="stack">
+          {(isBlank ? currentStep.options : currentStep.choices).map((choice) => (
+            <button key={choice} className="choice-button" onClick={() => checkChoice(choice)}>{choice}</button>
+          ))}
         </div>
-      );
+        {feedback === 'correct' && <div className="feedback ok"><CheckCircle2 size={20} /> <div><strong>Correct</strong><div className="muted">That is right.</div></div></div>}
+        {feedback === 'wrong' && <div className="feedback error"><XCircle size={20} /> <div><strong>Not quite</strong><div className="muted">{isBlank ? `Correct answer: ${currentStep.blankAnswer}` : `Correct answer: ${current.english}`}</div></div></div>}
+        <Button secondary onClick={goNext}>Next step</Button>
+      </div>;
     }
     return null;
   };
 
-  return (
-    <div className="app-shell">
-      <div className="app-container">
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h1>Arabic Companion</h1>
-              <p>A calm Arabic lesson app for Dad.</p>
-            </div>
-            <span className="pill dark">Age-friendly</span>
-          </div>
-
-          <div className="stats-grid">
-            <div className="mini-card"><span>Mastered</span><strong>{masteredCount}</strong></div>
-            <div className="mini-card"><span>Daily lessons</span><strong>{dailyGoal}</strong></div>
-            <div className="mini-card"><span>Library size</span><strong>{PHRASES.length}</strong></div>
-          </div>
-
-          <div className="progress-block">
-            <div className="row-between"><span>Overall progress</span><span>{overallProgress}%</span></div>
-            <div className="progress-bar"><div style={{ width: `${overallProgress}%` }} /></div>
-          </div>
-          <div className="progress-card">
-            <div className="row-between"><span>Current lesson</span><span>{lessonProgress}%</span></div>
-            <div className="progress-bar thin"><div style={{ width: `${lessonProgress}%` }} /></div>
-          </div>
+  return <div className="app-shell">
+    <div className="app-container">
+      <div className="card">
+        <div className="card-header">
+          <div><h1>Arabic Companion</h1><p>A calm Arabic learning companion.</p></div>
         </div>
-
-        <div className="card">
-          <div className="tabs-grid">
-            {[
-              ['lesson', <BookOpen size={16} />, 'Lesson'],
-              ['listen', <Ear size={16} />, 'Listen'],
-              ['phrasebook', <ScrollText size={16} />, 'Phrases'],
-              ['review', <Star size={16} />, 'Review'],
-            ].map(([value, icon, label]) => (
-              <button key={value} className={`tab-button ${mode === value ? 'active' : ''}`} onClick={() => setMode(value)}>
-                {icon} {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="chip-row top-gap">
-            {tracks.map((t) => (
-              <button key={t} className={`chip ${track === t ? 'chip-active' : ''}`} onClick={() => setTrack(t)}>
-                {t}
-              </button>
-            ))}
-          </div>
-
-          <div className="button-grid-2 top-gap">
-            <button className="toggle-card" onClick={() => setLessonKind((v) => (v === 'morning' ? 'evening' : 'morning'))}>
-              <Brain size={16} /> {lessonKind === 'morning' ? 'Morning lesson' : 'Evening lesson'}
-            </button>
-            <button className={`toggle-card ${adaptiveMode ? 'toggle-active' : ''}`} onClick={() => setAdaptiveMode((v) => !v)}>
-              <TrendingUp size={16} /> Adaptive {adaptiveMode ? 'On' : 'Off'}
-            </button>
-          </div>
+        <div className="stats-grid stats-grid-4">
+          <div className="mini-card"><span>Mastered</span><strong>{masteredCount}</strong></div>
+          <div className="mini-card"><span>Daily lessons</span><strong>{dailyGoal}</strong></div>
+          <div className="mini-card"><span>Library size</span><strong>{PHRASES.length}</strong></div>
+          <div className="mini-card"><span>Lesson no.</span><strong>{lessonNumber}</strong></div>
         </div>
-
-        {mode === 'lesson' && (
-          <div className="card">
-            {lessonComplete ? (
-              <div className="lesson-center">
-                <div className="title-big">Lesson complete 🎉</div>
-                <div className="muted">A clean stopping point, just like Duolingo.</div>
-                <div className="stack top-gap">
-                  <IconButton onClick={rebuildLesson}>Start next lesson</IconButton>
-                  <IconButton secondary onClick={() => setMode('review')}>Go to review</IconButton>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="row-between">
-                  <span className="pill soft">Step {stepIndex + 1} / {lesson.length}</span>
-                  <span className="muted">{current.track}</span>
-                </div>
-                <div className="top-gap">{renderLessonStep()}</div>
-              </>
-            )}
-          </div>
-        )}
-
-        {mode === 'listen' && (
-          <div className="card">
-            <h2>Listening practice</h2>
-            <p className="muted">Tap a phrase to hear it in Arabic.</p>
-            <div className="stack top-gap">
-              {(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track)).slice(0, 14).map((item) => (
-                <button key={item.id} className="list-card" onClick={() => speak(item.arabic)}>
-                  <div className="row-between">
-                    <div>
-                      <div className="arabic-mid" dir="rtl">{item.arabic}</div>
-                      <div className="translit small">{item.transliteration}</div>
-                      <div className="muted">{item.english}</div>
-                    </div>
-                    <PlayCircle size={22} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {mode === 'phrasebook' && (
-          <div className="card">
-            <h2>Phrasebook & reading bank</h2>
-            <p className="muted">Browse by track: daily Arabic, reading Arabic, history, poetry, travel, and culture.</p>
-            <div className="stack top-gap">
-              {(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track)).map((item) => (
-                <div key={item.id} className="phrase-card">
-                  <div className="row-between">
-                    <span className="pill soft">{item.category}</span>
-                    <div className="row">
-                      <span className="pill">{item.level}</span>
-                      <button className="icon-only" onClick={() => speak(item.arabic)}><Volume2 size={16} /></button>
-                    </div>
-                  </div>
-                  <div className="arabic-mid top-gap" dir="rtl">{item.arabic}</div>
-                  <div className="translit small">{item.transliteration}</div>
-                  <div className="english-mid">{item.english}</div>
-                  <div className="muted">{item.notes}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {mode === 'review' && (
-          <div className="card">
-            <h2>Review & progress</h2>
-            <p className="muted">Adaptive mode surfaces weaker items first, then adds stronger items to keep him moving ahead.</p>
-            <div className="stack top-gap">
-              {categoryStats.map((row) => (
-                <div key={row.cat} className="phrase-card">
-                  <div className="row-between"><strong>{row.cat}</strong><span className="muted">{row.mastered}/{row.total}</span></div>
-                  <div className="progress-bar thin top-gap"><div style={{ width: `${(row.mastered / row.total) * 100}%` }} /></div>
-                </div>
-              ))}
-            </div>
-            <div className="stack top-gap">
-              <IconButton onClick={weakPractice}><Shuffle size={16} /> Practice weak phrases</IconButton>
-              <IconButton secondary onClick={resetAll}><RotateCcw size={16} /> Reset progress</IconButton>
-            </div>
-            <div className="subpanel top-gap">
-              Correct answers logged: <strong>{correctToday}</strong><br />
-              Voice practice appears only on browsers that expose speech recognition.<br />
-              Progress is saved in the phone browser using local storage.
-            </div>
-          </div>
-        )}
-
-        <div className="card">
-          <div className="row title-row"><Languages size={16} /> <strong>What this expanded version now does</strong></div>
-          <ul className="feature-list">
-            <li>Much larger built-in phrase bank to reduce repetition fast</li>
-            <li>Daily use, travel, reading, history, poetry, proverbs, and culture</li>
-            <li>Duolingo-like finite lessons with a clean stopping point</li>
-            <li>Adaptive sequencing to keep weak items in rotation</li>
-            <li>Optional voice recognition practice on supported mobile browsers</li>
-          </ul>
-          <div className="subpanel">
-            <div className="row title-row"><Newspaper size={16} /> <strong>Next production upgrades</strong></div>
-            Real audio files, better Arabic speech matching, even larger libraries, and optional AI-generated fresh lessons later.
-          </div>
+        <div className="progress-block">
+          <div className="row-between"><span>Overall progress</span><span>{overallProgress}%</span></div>
+          <div className="progress-bar"><div style={{ width: `${overallProgress}%` }} /></div>
+        </div>
+        <div className="progress-card">
+          <div className="row-between"><span>Current lesson</span><span>{lessonProgress}%</span></div>
+          <div className="progress-bar thin"><div style={{ width: `${lessonProgress}%` }} /></div>
         </div>
       </div>
+
+      <div className="card">
+        <div className="row title-row"><Upload size={16} /> <strong>Load GPT lesson</strong></div>
+        <p className="muted">Paste the JSON from your Arabic Lesson Factory here. The app will turn the source phrases into a full lesson automatically.</p>
+        <textarea className="json-box" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={sampleJson} />
+        <div className="button-grid-2 top-gap">
+          <Button onClick={loadImportedLesson}><Download size={16} /> Load lesson</Button>
+          <Button secondary onClick={() => setImportText(sampleJson)}>Paste sample</Button>
+        </div>
+        {importError ? <div className="error-msg top-gap">{importError}</div> : null}
+        {externalLessonInfo ? <div className="ok-msg top-gap">Loaded {externalLessonInfo.count} source phrases from GPT.</div> : null}
+      </div>
+
+      <div className="card">
+        <div className="tabs-grid">
+          {[
+            ['lesson', <BookOpen size={16} />, 'Lesson'],
+            ['listen', <Ear size={16} />, 'Listen'],
+            ['phrasebook', <ScrollText size={16} />, 'Phrases'],
+            ['review', <Star size={16} />, 'Review'],
+          ].map(([value, icon, label]) => (
+            <button key={value} className={`tab-button ${mode === value ? 'active' : ''}`} onClick={() => setMode(value)}>{icon} {label}</button>
+          ))}
+        </div>
+        <div className="chip-row top-gap">
+          {tracks.map((t) => <button key={t} className={`chip ${track === t ? 'chip-active' : ''}`} onClick={() => setTrack(t)}>{t}</button>)}
+        </div>
+        <div className="button-grid-2 top-gap">
+          <button className="toggle-card" onClick={() => setLessonKind((v) => (v === 'morning' ? 'evening' : 'morning'))}><Brain size={16} /> {lessonKind === 'morning' ? 'Morning lesson' : 'Evening lesson'}</button>
+          <button className={`toggle-card ${adaptiveMode ? 'toggle-active' : ''}`} onClick={() => setAdaptiveMode((v) => !v)}><TrendingUp size={16} /> Adaptive {adaptiveMode ? 'On' : 'Off'}</button>
+        </div>
+      </div>
+
+      {mode === 'lesson' && <div className="card">
+        {lessonComplete ? <div className="lesson-center">
+          <div className="title-big">Lesson {lessonNumber - 1} complete 🎉</div>
+          <div className="muted">A clean stopping point, just like Duolingo.</div>
+          <div className="stack top-gap"><Button onClick={rebuildLesson}>Start next lesson</Button><Button secondary onClick={() => setMode('review')}>Go to review</Button></div>
+        </div> : <>
+          <div className="row-between"><span className="pill soft">Lesson {lessonNumber} · Step {stepIndex + 1} / {lesson.length}</span><span className="muted">{externalLessonInfo ? 'GPT lesson' : current.track}</span></div>
+          <div className="top-gap">{renderLessonStep()}</div>
+        </>}
+      </div>}
+
+      {mode === 'listen' && <div className="card">
+        <h2>Listening practice</h2><p className="muted">Tap a phrase to hear it in Arabic.</p>
+        <div className="stack top-gap">
+          {(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track)).slice(0, 14).map((item) => (
+            <button key={item.id} className="list-card" onClick={() => speak(item.arabic)}>
+              <div className="row-between"><div><div className="arabic-mid" dir="rtl">{item.arabic}</div><div className="translit small">{item.transliteration}</div><div className="muted">{item.english}</div></div><PlayCircle size={22} /></div>
+            </button>
+          ))}
+        </div>
+      </div>}
+
+      {mode === 'phrasebook' && <div className="card">
+        <h2>Phrasebook & reading bank</h2><p className="muted">Browse daily Arabic, travel, reading, history, poetry, and culture.</p>
+        <div className="stack top-gap">
+          {(track === 'All Tracks' ? PHRASES : PHRASES.filter((p) => p.track === track)).map((item) => (
+            <div key={item.id} className="phrase-card">
+              <div className="row-between"><span className="pill soft">{item.category}</span><div className="row"><span className="pill">{item.level}</span><button className="icon-only" onClick={() => speak(item.arabic)}><Volume2 size={16} /></button></div></div>
+              <div className="arabic-mid top-gap" dir="rtl">{item.arabic}</div><div className="translit small">{item.transliteration}</div><div className="english-mid">{item.english}</div><div className="muted">{item.notes}</div>
+            </div>
+          ))}
+        </div>
+      </div>}
+
+      {mode === 'review' && <div className="card">
+        <h2>Review & accomplishments</h2><p className="muted">Track lessons completed and keep weaker items moving in rotation.</p>
+        <div className="stats-grid stats-grid-3 top-gap">
+          <div className="mini-card"><span>Lessons done</span><strong>{meta.lessonsCompleted}</strong></div>
+          <div className="mini-card"><span>Current streak</span><strong>{Math.max(1, Math.min(meta.lessonsCompleted, 7))}</strong></div>
+          <div className="mini-card"><span>Phrase bank</span><strong>{PHRASES.length}</strong></div>
+        </div>
+        <div className="subpanel top-gap">
+          <div className="row title-row"><Trophy size={16} /> <strong>Accomplishments</strong></div>
+          {meta.accomplishments?.length ? <ul className="feature-list">{meta.accomplishments.map((item, idx) => <li key={idx}>{item}</li>)}</ul> : <div className="muted">Complete a few lessons to start unlocking accomplishments.</div>}
+        </div>
+        <div className="stack top-gap">
+          {categoryStats.map((row) => <div key={row.cat} className="phrase-card"><div className="row-between"><strong>{row.cat}</strong><span className="muted">{row.mastered}/{row.total}</span></div><div className="progress-bar thin top-gap"><div style={{ width: `${(row.mastered / row.total) * 100}%` }} /></div></div>)}
+        </div>
+        <div className="stack top-gap"><Button onClick={weakPractice}><Shuffle size={16} /> Practice weak phrases</Button><Button secondary onClick={resetAll}><RotateCcw size={16} /> Reset progress</Button></div>
+        <div className="subpanel top-gap">Correct answers logged: <strong>{correctToday}</strong><br />Voice practice appears only on browsers that expose speech recognition.<br />Progress is saved in the phone browser using local storage.</div>
+      </div>}
+
+      <div className="card">
+        <div className="row title-row"><Languages size={16} /> <strong>What this version now does</strong></div>
+        <ul className="feature-list">
+          <li>Loads source phrases from your GPT and expands them into a full lesson automatically</li>
+          <li>Numbers each lesson and records lessons completed</li>
+          <li>Tracks accomplishments to make progress more motivating</li>
+          <li>Removes references to age, elderly, or older learners</li>
+          <li>Keeps phrasebook, review, listening, and voice practice in one app</li>
+        </ul>
+      </div>
     </div>
-  );
+  </div>;
 }

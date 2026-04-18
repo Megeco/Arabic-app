@@ -1,26 +1,18 @@
-# Arabic Companion Expanded
+# Arabic Companion V4
 
-This version includes a much larger built-in phrase bank.
+This version adds:
+- GPT lesson JSON import
+- automatic task generation from source phrases
+- lesson numbering
+- accomplishments and lesson-completed tracking
+- removal of age-related labels and description text
 
-## What's new
-- 129 built-in phrases
-- broader tracks: daily use, travel, reading, history, poetry, culture
-- same mobile-first lesson flow
-
-## Run locally
-
-```bash
-npm install
-npm run dev
-```
-
-## Deploy
-Upload this project to GitHub and redeploy on Vercel.
-
-## Quick update path
-If your existing repo is already live, you mainly need to replace:
-- `src/App.jsx`
-- `src/phrases.js`
-- `src/index.css`
-
-and keep `src/main.jsx` if needed.
+## Replace in your repo
+- src/App.jsx
+- src/index.css
+- src/main.jsx
+- src/phrases.js
+- index.html
+- manifest.webmanifest
+- package.json
+- vite.config.js
