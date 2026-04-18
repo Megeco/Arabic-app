@@ -1,6 +1,11 @@
-# Arabic Companion
+# Arabic Companion Expanded
 
-A mobile-first Arabic learning web app for older learners.
+This version includes a much larger built-in phrase bank.
+
+## What's new
+- 129 built-in phrases
+- broader tracks: daily use, travel, reading, history, poetry, culture
+- same mobile-first lesson flow
 
 ## Run locally
 
@@ -9,21 +14,13 @@ npm install
 npm run dev
 ```
 
-## Build
+## Deploy
+Upload this project to GitHub and redeploy on Vercel.
 
-```bash
-npm run build
-```
+## Quick update path
+If your existing repo is already live, you mainly need to replace:
+- `src/App.jsx`
+- `src/phrases.js`
+- `src/index.css`
 
-## Deploy to Vercel
-
-1. Create a GitHub repository.
-2. Upload this project.
-3. Import the repo into Vercel.
-4. Deploy.
-
-## Notes
-
-- Voice practice depends on browser speech recognition support.
-- Progress is stored in the browser via localStorage.
-- The web manifest is included, but icons are still empty placeholders.
+and keep `src/main.jsx` if needed.
