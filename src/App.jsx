@@ -367,18 +367,6 @@ export default function App() {
       </div>
 
       <div className="card">
-        <div className="row title-row"><Upload size={16} /> <strong>Load lesson manually</strong></div>
-        <p className="muted">You can still paste JSON from your Arabic Lesson Factory here if you want to override the generated lesson.</p>
-        <textarea className="json-box" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder={sampleJson} />
-        <div className="button-grid-2 top-gap">
-          <Button onClick={loadImportedLesson}><Download size={16} /> Load lesson</Button>
-          <Button secondary onClick={() => setImportText(sampleJson)}>Paste sample</Button>
-        </div>
-        {importError ? <div className="error-msg top-gap">{importError}</div> : null}
-        {externalLessonInfo ? <div className="ok-msg top-gap">Loaded {externalLessonInfo.count} source phrases from {externalLessonInfo.source}.</div> : null}
-      </div>
-
-      <div className="card">
         <div className="tabs-grid">
           {[
             ['lesson', <BookOpen size={16} />, 'Lesson'],
@@ -460,6 +448,48 @@ export default function App() {
           <li>Keeps phrasebook, review, listening, and voice practice in one app</li>
         </ul>
       </div>
+
+      {/* Manual lesson import (hidden at bottom) */}
+<div className="card">
+  <details>
+    <summary style={{ cursor: "pointer", fontWeight: "600" }}>
+      Manual lesson import
+    </summary>
+
+    <div className="top-gap">
+      <p className="muted">
+        Paste JSON from your Arabic Lesson Factory here if you want to override the generated lesson.
+      </p>
+
+      <textarea
+        className="json-box"
+        value={importText}
+        onChange={(e) => setImportText(e.target.value)}
+        placeholder={sampleJson}
+      />
+
+      <div className="button-grid-2 top-gap">
+        <Button onClick={loadImportedLesson}>
+          <Download size={16} /> Load lesson
+        </Button>
+        <Button secondary onClick={() => setImportText(sampleJson)}>
+          Paste sample
+        </Button>
+      </div>
+
+      {importError ? (
+        <div className="error-msg top-gap">{importError}</div>
+      ) : null}
+
+      {externalLessonInfo ? (
+        <div className="ok-msg top-gap">
+          Loaded {externalLessonInfo.count} source phrases from {externalLessonInfo.source}.
+        </div>
+      ) : null}
+    </div>
+  </details>
+</div>
+      
     </div>
   </div>;
 }
