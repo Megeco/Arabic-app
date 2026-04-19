@@ -191,6 +191,63 @@ function Button({ children, onClick, secondary = false, disabled = false }) {
   );
 }
 
+function getBuiltInLesson(dayNumber, lessonKind = 'morning') {
+  const day = ((dayNumber - 1) % 30) + 1;
+
+  const schedule = [
+    'daily life',
+    'daily life',
+    'travel',
+    'travel',
+    'food',
+    'food',
+    'directions',
+    'directions',
+    'reading',
+    'reading',
+    'culture',
+    'culture',
+    'history',
+    'history',
+    'proverbs',
+    'proverbs',
+    'daily life',
+    'travel',
+    'food',
+    'reading',
+    'culture',
+    'history',
+    'proverbs',
+    'daily life',
+    'travel',
+    'food',
+    'reading',
+    'culture',
+    'history',
+    'review'
+  ];
+
+  const theme = schedule[day - 1];
+
+  let pool;
+
+  if (theme === 'review') {
+    pool = PHRASES;
+  } else {
+    pool = PHRASES.filter(p =>
+      p.category.toLowerCase().includes(theme) ||
+      p.track.toLowerCase().includes(theme)
+    );
+  }
+
+  if (!pool.length) pool = PHRASES;
+
+  return generateTasksFromPhrases(
+    shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7),
+    lessonKind
+  );
+}
+
 export default function App() {
   const sessionInfo = useMemo(() => getCurrentSessionInfo(), []);
   const currentSessionId = sessionInfo.sessionId;
@@ -391,7 +448,14 @@ export default function App() {
     setShowAnswer(false);
     setSpokenText('');
     setVoiceFeedback(null);
-
+const goBack = () => {
+  setStepIndex((s) => Math.max(0, s - 1));
+  setInput('');
+  setFeedback(null);
+  setShowAnswer(false);
+  setSpokenText('');
+  setVoiceFeedback(null);
+};
     setStepIndex((s) => {
       const next = s + 1;
       if (next >= lesson.length) {
@@ -645,7 +709,14 @@ export default function App() {
               </div>
             )}
 
-            <Button onClick={goNext}>Continue</Button>
+            <div className="button-grid-2">
+  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
+    Back
+  </Button>
+  <Button onClick={goNext}>
+    Continue
+  </Button>
+</div>
           </div>
         </div>
       );
@@ -710,7 +781,14 @@ export default function App() {
             </div>
           )}
 
-          <Button secondary onClick={goNext}>Next step</Button>
+          <div className="button-grid-2">
+  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
+    Back
+  </Button>
+  <Button onClick={goNext}>
+    Next
+  </Button>
+</div>
         </div>
       );
     }
@@ -779,7 +857,14 @@ export default function App() {
             </div>
           )}
 
-          <Button secondary onClick={goNext}>Next step</Button>
+          <div className="button-grid-2">
+  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
+    Back
+  </Button>
+  <Button onClick={goNext}>
+    Next
+  </Button>
+</div>
         </div>
       );
     }
@@ -841,7 +926,28 @@ export default function App() {
             <Button onClick={generateLesson} disabled={generating}>
               {generating ? 'Generating...' : <><Sparkles size={16} /> Generate lesson</>}
             </Button>
-            <Button secondary onClick={rebuildLesson}>Use built-in lesson</Button>
+            <Button
+  secondary
+  onClick={() => {
+    const built = getBuiltInLesson(meta.lessonsCompleted + 1, lessonKind);
+
+    setLesson(built);
+    setExternalLessonInfo({
+      count: built.length,
+      source: 'Built-in lesson'
+    });
+
+    setStepIndex(0);
+    setInput('');
+    setFeedback(null);
+    setShowAnswer(false);
+    setGenerateError('');
+    setImportError('');
+    setMode('lesson');
+  }}
+>
+  Use built-in lesson
+</Button>
           </div>
 
           {generateError ? <div className="error-msg top-gap">{generateError}</div> : null}
