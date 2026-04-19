@@ -690,7 +690,7 @@ export default function App() {
             <div className="arabic-big" dir="rtl">{current.arabic}</div>
             <div className="translit">{current.transliteration}</div>
             <div className="english-big">{current.english}</div>
-            <div className="muted">{current.notes}</div>
+            {false && <div className="muted">{current.notes}</div>}
           </div>
 
           <div className="center">
@@ -1133,17 +1133,11 @@ export default function App() {
           </div>
         )}
 
-        <div className="card">
-          <div className="row title-row"><Languages size={16} /> <strong>What this version now does</strong></div>
-          <ul className="feature-list">
-            <li>Generates a lesson with one tap through a server-side API call</li>
-            <li>Restores the exact step if the page refreshes by mistake</li>
-            <li>Creates one morning lesson and one evening lesson per day</li>
-            <li>Adds a back button so he can revisit the previous step</li>
-            <li>Includes a structured built-in monthly lesson fallback</li>
-          </ul>
-        </div>
-
+     {false && (
+  <div className="card">
+    ...
+  </div>
+)}
         <div className="card">
           <details>
             <summary style={{ cursor: 'pointer', fontWeight: '600' }}>
