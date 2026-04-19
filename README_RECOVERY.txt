@@ -1,0 +1,1 @@
+Replace only src/App.jsx and api/generate-lesson.js. Ignore monthly/fortnight files for now.
