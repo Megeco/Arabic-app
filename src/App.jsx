@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Volume2, CheckCircle2, XCircle, RotateCcw, BookOpen, Ear, Shuffle, Star,
   PlayCircle, ScrollText, Languages, Mic, MicOff, TrendingUp, Brain,
-  Download, Upload, Trophy, Sparkles
+  Download, Trophy, Sparkles
 } from 'lucide-react';
 import { PHRASES } from './phrases';
 
@@ -179,6 +179,61 @@ function importLessonJson(rawText) {
   const sourcePhrases = Array.isArray(parsed) ? parsed : (parsed.source_phrases || parsed.phrases || []);
   return sourcePhrases.map(sanitizeImportedPhrase).filter((p) => p.arabic && p.english);
 }
+function getBuiltInLesson(dayNumber, lessonKind = 'morning') {
+  const monthlyPlan = [
+    { morning: ['Everyday Arabic'], evening: ['Reading Arabic'] },
+    { morning: ['Travel'], evening: ['Travel'] },
+    { morning: ['Food & Drink'], evening: ['Everyday Arabic'] },
+    { morning: ['History & Culture'], evening: ['Reading Arabic'] },
+    { morning: ['Culture & Proverbs'], evening: ['Culture & Proverbs'] },
+    { morning: ['Reading Arabic'], evening: ['Everyday Arabic'] },
+    { morning: ['Travel'], evening: ['Food & Drink'] },
+    { morning: ['Everyday Arabic'], evening: ['History & Culture'] },
+    { morning: ['Reading Arabic'], evening: ['Culture & Proverbs'] },
+    { morning: ['Travel'], evening: ['Reading Arabic'] },
+    { morning: ['Food & Drink'], evening: ['Travel'] },
+    { morning: ['History & Culture'], evening: ['Everyday Arabic'] },
+    { morning: ['Culture & Proverbs'], evening: ['Reading Arabic'] },
+    { morning: ['Everyday Arabic'], evening: ['Food & Drink'] },
+    { morning: ['Reading Arabic'], evening: ['History & Culture'] },
+    { morning: ['Travel'], evening: ['Culture & Proverbs'] },
+    { morning: ['Everyday Arabic'], evening: ['Reading Arabic'] },
+    { morning: ['Food & Drink'], evening: ['Travel'] },
+    { morning: ['History & Culture'], evening: ['Everyday Arabic'] },
+    { morning: ['Culture & Proverbs'], evening: ['Reading Arabic'] },
+    { morning: ['Reading Arabic'], evening: ['Travel'] },
+    { morning: ['Everyday Arabic'], evening: ['Food & Drink'] },
+    { morning: ['History & Culture'], evening: ['Culture & Proverbs'] },
+    { morning: ['Travel'], evening: ['Reading Arabic'] },
+    { morning: ['Everyday Arabic'], evening: ['History & Culture'] },
+    { morning: ['Food & Drink'], evening: ['Culture & Proverbs'] },
+    { morning: ['Reading Arabic'], evening: ['Everyday Arabic'] },
+    { morning: ['Travel'], evening: ['History & Culture'] },
+    { morning: ['Culture & Proverbs'], evening: ['Food & Drink'] },
+    { morning: ['Reading Arabic'], evening: ['Culture & Proverbs'] }
+  ];
+
+  const dayIndex = ((dayNumber - 1) % monthlyPlan.length + monthlyPlan.length) % monthlyPlan.length;
+  const plan = monthlyPlan[dayIndex];
+  const desiredTracks = lessonKind === 'morning' ? plan.morning : plan.evening;
+
+  let pool = PHRASES.filter((p) => desiredTracks.includes(p.track));
+
+  if (pool.length < 8) {
+    const categories = desiredTracks.map((t) => t.toLowerCase());
+    pool = PHRASES.filter((p) =>
+      categories.some(
+        (needle) =>
+          (p.track || '').toLowerCase().includes(needle) ||
+          (p.category || '').toLowerCase().includes(needle)
+      )
+    );
+  }
+
+  if (!pool.length) pool = PHRASES;
+
+  return generateTasksFromPhrases(shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7), lessonKind);
+}
 function Button({ children, onClick, secondary = false, disabled = false }) {
   return (
     <button
@@ -188,63 +243,6 @@ function Button({ children, onClick, secondary = false, disabled = false }) {
     >
       {children}
     </button>
-  );
-}
-
-function getBuiltInLesson(dayNumber, lessonKind = 'morning') {
-  const day = ((dayNumber - 1) % 30) + 1;
-
-  const schedule = [
-    'daily life',
-    'daily life',
-    'travel',
-    'travel',
-    'food',
-    'food',
-    'directions',
-    'directions',
-    'reading',
-    'reading',
-    'culture',
-    'culture',
-    'history',
-    'history',
-    'proverbs',
-    'proverbs',
-    'daily life',
-    'travel',
-    'food',
-    'reading',
-    'culture',
-    'history',
-    'proverbs',
-    'daily life',
-    'travel',
-    'food',
-    'reading',
-    'culture',
-    'history',
-    'review'
-  ];
-
-  const theme = schedule[day - 1];
-
-  let pool;
-
-  if (theme === 'review') {
-    pool = PHRASES;
-  } else {
-    pool = PHRASES.filter(p =>
-      p.category.toLowerCase().includes(theme) ||
-      p.track.toLowerCase().includes(theme)
-    );
-  }
-
-  if (!pool.length) pool = PHRASES;
-
-  return generateTasksFromPhrases(
-    shuffle(pool).slice(0, lessonKind === 'morning' ? 8 : 7),
-    lessonKind
   );
 }
 
@@ -448,14 +446,7 @@ export default function App() {
     setShowAnswer(false);
     setSpokenText('');
     setVoiceFeedback(null);
-const goBack = () => {
-  setStepIndex((s) => Math.max(0, s - 1));
-  setInput('');
-  setFeedback(null);
-  setShowAnswer(false);
-  setSpokenText('');
-  setVoiceFeedback(null);
-};
+
     setStepIndex((s) => {
       const next = s + 1;
       if (next >= lesson.length) {
@@ -465,6 +456,15 @@ const goBack = () => {
     });
 
     setTimeout(() => inputRef.current?.focus(), 80);
+  };
+
+  const goBack = () => {
+    setStepIndex((s) => Math.max(0, s - 1));
+    setInput('');
+    setFeedback(null);
+    setShowAnswer(false);
+    setSpokenText('');
+    setVoiceFeedback(null);
   };
 
   const checkTyping = () => {
@@ -664,6 +664,17 @@ const goBack = () => {
   ]
 }`;
 
+  const renderNavButtons = (primaryLabel = 'Next') => (
+    <div className="button-grid-2">
+      <Button secondary onClick={goBack} disabled={stepIndex === 0}>
+        Back
+      </Button>
+      <Button onClick={goNext}>
+        {primaryLabel}
+      </Button>
+    </div>
+  );
+
   const renderLessonStep = () => {
     if (!currentStep) return null;
 
@@ -709,14 +720,7 @@ const goBack = () => {
               </div>
             )}
 
-            <div className="button-grid-2">
-  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
-    Back
-  </Button>
-  <Button onClick={goNext}>
-    Continue
-  </Button>
-</div>
+            {renderNavButtons('Continue')}
           </div>
         </div>
       );
@@ -781,14 +785,7 @@ const goBack = () => {
             </div>
           )}
 
-          <div className="button-grid-2">
-  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
-    Back
-  </Button>
-  <Button onClick={goNext}>
-    Next
-  </Button>
-</div>
+          {renderNavButtons('Next')}
         </div>
       );
     }
@@ -857,14 +854,7 @@ const goBack = () => {
             </div>
           )}
 
-          <div className="button-grid-2">
-  <Button secondary onClick={goBack} disabled={stepIndex === 0}>
-    Back
-  </Button>
-  <Button onClick={goNext}>
-    Next
-  </Button>
-</div>
+          {renderNavButtons('Next')}
         </div>
       );
     }
@@ -927,27 +917,29 @@ const goBack = () => {
               {generating ? 'Generating...' : <><Sparkles size={16} /> Generate lesson</>}
             </Button>
             <Button
-  secondary
-  onClick={() => {
-    const built = getBuiltInLesson(meta.lessonsCompleted + 1, lessonKind);
-
-    setLesson(built);
-    setExternalLessonInfo({
-      count: built.length,
-      source: 'Built-in lesson'
-    });
-
-    setStepIndex(0);
-    setInput('');
-    setFeedback(null);
-    setShowAnswer(false);
-    setGenerateError('');
-    setImportError('');
-    setMode('lesson');
-  }}
->
-  Use built-in lesson
-</Button>
+              secondary
+              onClick={() => {
+                const built = getBuiltInLesson(meta.lessonsCompleted + 1, lessonKind);
+                setLesson(built);
+                setExternalLessonInfo({
+                  count: built.length,
+                  source: 'Built-in lesson'
+                });
+                setStepIndex(0);
+                setInput('');
+                setFeedback(null);
+                setShowAnswer(false);
+                setGenerateError('');
+                setImportError('');
+                setMode('lesson');
+                setMeta((prev) => ({
+                  ...prev,
+                  lastGeneratedSession: currentSessionId
+                }));
+              }}
+            >
+              Use built-in lesson
+            </Button>
           </div>
 
           {generateError ? <div className="error-msg top-gap">{generateError}</div> : null}
@@ -1147,12 +1139,11 @@ const goBack = () => {
             <li>Generates a lesson with one tap through a server-side API call</li>
             <li>Restores the exact step if the page refreshes by mistake</li>
             <li>Creates one morning lesson and one evening lesson per day</li>
-            <li>Numbers each lesson and records lessons completed</li>
-            <li>Keeps phrasebook, review, listening, and voice practice in one app</li>
+            <li>Adds a back button so he can revisit the previous step</li>
+            <li>Includes a structured built-in monthly lesson fallback</li>
           </ul>
         </div>
 
-        {/* Manual lesson import (hidden at bottom) */}
         <div className="card">
           <details>
             <summary style={{ cursor: 'pointer', fontWeight: '600' }}>
