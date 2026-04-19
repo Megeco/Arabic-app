@@ -1,3 +1,5 @@
+import { MONTHLY_LESSONS } from './monthlyLessons';
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Volume2, CheckCircle2, XCircle, RotateCcw, BookOpen, Ear, Shuffle, Star,
@@ -5,6 +7,14 @@ import {
   Download, Trophy, Sparkles
 } from 'lucide-react';
 import { PHRASES } from './phrases';
+
+function getMonthlyLessonForToday(sessionLabel = 'morning') {
+  const now = new Date();
+  const day = now.getDate();
+  return MONTHLY_LESSONS.find(
+    (lesson) => lesson.day === day && lesson.session === sessionLabel
+  ) || null;
+}
 
 function normalizeText(s) {
   return (s || '').toLowerCase().replace(/[؟?!.,']/g, '').replace(/\s+/g, ' ').trim();
@@ -579,7 +589,41 @@ export default function App() {
       setImportError(err.message || 'Could not load the lesson JSON.');
     }
   };
+const loadMonthlyLesson = useCallback((sessionToLoad = lessonKind) => {
+  const monthlyLesson = getMonthlyLessonForToday(sessionToLoad);
 
+  if (!monthlyLesson || !monthlyLesson.source_phrases?.length) {
+    return false;
+  }
+
+  const phrases = monthlyLesson.source_phrases
+    .map(sanitizeImportedPhrase)
+    .filter((p) => p.arabic && p.english);
+
+  if (!phrases.length) {
+    return false;
+  }
+
+  setLesson(generateTasksFromPhrases(phrases, sessionToLoad));
+  setExternalLessonInfo({
+    count: phrases.length,
+    source: `Monthly lesson · Day ${monthlyLesson.day} ${monthlyLesson.session}`
+  });
+  setStepIndex(0);
+  setInput('');
+  setFeedback(null);
+  setShowAnswer(false);
+  setImportError('');
+  setGenerateError('');
+  setMode('lesson');
+
+  setMeta((prev) => ({
+    ...prev,
+    lastGeneratedSession: currentSessionId
+  }));
+
+  return true;
+}, [lessonKind, currentSessionId]);
   const generateLesson = useCallback(async () => {
     try {
       setGenerating(true);
@@ -627,26 +671,38 @@ export default function App() {
   }, [lessonKind, theme, difficulty, currentSessionId]);
 
   useEffect(() => {
-    if (!initLoaded) return;
+  if (!initLoaded) return;
 
-    const active = getStoredActiveLesson();
-    if (
-      active &&
-      active.sessionId === currentSessionId &&
-      Array.isArray(active.lesson) &&
-      active.lesson.length > 0 &&
-      active.stepIndex < active.lesson.length
-    ) {
-      return;
-    }
+  const active = getStoredActiveLesson();
+  if (
+    active &&
+    active.sessionId === currentSessionId &&
+    Array.isArray(active.lesson) &&
+    active.lesson.length > 0 &&
+    active.stepIndex < active.lesson.length
+  ) {
+    return;
+  }
 
-    const alreadyGeneratedThisSession = meta.lastGeneratedSession === currentSessionId;
-    const alreadyCompletedThisSession = meta.lastCompletedSession === currentSessionId;
+  const alreadyGeneratedThisSession = meta.lastGeneratedSession === currentSessionId;
+  const alreadyCompletedThisSession = meta.lastCompletedSession === currentSessionId;
 
-    if (!alreadyGeneratedThisSession && !alreadyCompletedThisSession) {
+  if (!alreadyGeneratedThisSession && !alreadyCompletedThisSession) {
+    const loadedMonthly = loadMonthlyLesson(lessonKind);
+
+    if (!loadedMonthly) {
       generateLesson();
     }
-  }, [initLoaded, currentSessionId, meta.lastGeneratedSession, meta.lastCompletedSession, generateLesson]);
+  }
+}, [
+  initLoaded,
+  currentSessionId,
+  meta.lastGeneratedSession,
+  meta.lastCompletedSession,
+  lessonKind,
+  loadMonthlyLesson,
+  generateLesson
+]);
 
   const sampleJson = `{
   "title": "Morning Arabic Lesson",
@@ -917,29 +973,33 @@ export default function App() {
               {generating ? 'Generating...' : <><Sparkles size={16} /> Generate lesson</>}
             </Button>
             <Button
-              secondary
-              onClick={() => {
-                const built = getBuiltInLesson(meta.lessonsCompleted + 1, lessonKind);
-                setLesson(built);
-                setExternalLessonInfo({
-                  count: built.length,
-                  source: 'Built-in lesson'
-                });
-                setStepIndex(0);
-                setInput('');
-                setFeedback(null);
-                setShowAnswer(false);
-                setGenerateError('');
-                setImportError('');
-                setMode('lesson');
-                setMeta((prev) => ({
-                  ...prev,
-                  lastGeneratedSession: currentSessionId
-                }));
-              }}
-            >
-              Use built-in lesson
-            </Button>
+  secondary
+  onClick={() => {
+    const loadedMonthly = loadMonthlyLesson(lessonKind);
+
+    if (!loadedMonthly) {
+      const built = getBuiltInLesson(meta.lessonsCompleted + 1, lessonKind);
+      setLesson(built);
+      setExternalLessonInfo({
+        count: built.length,
+        source: 'Built-in lesson'
+      });
+      setStepIndex(0);
+      setInput('');
+      setFeedback(null);
+      setShowAnswer(false);
+      setGenerateError('');
+      setImportError('');
+      setMode('lesson');
+      setMeta((prev) => ({
+        ...prev,
+        lastGeneratedSession: currentSessionId
+      }));
+    }
+  }}
+>
+  Use built-in lesson
+</Button>
           </div>
 
           {generateError ? <div className="error-msg top-gap">{generateError}</div> : null}
