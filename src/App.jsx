@@ -194,7 +194,14 @@ export default function App() {
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
   const dailyGoal = 2;
-
+// This helps "prime" the voices so they are ready when the button is clicked
+  useEffect(() => {
+    const loadVoices = () => { window.speechSynthesis.getVoices(); };
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
   useEffect(() => {
     setProgress(getStoredProgress());
     const storedMeta = getStoredMeta();
@@ -243,13 +250,30 @@ export default function App() {
     });
   }, [progress]);
 
-  const speak = (text) => {
+ const speak = (text) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ar-SA';
-    utter.rate = 0.8;
+    
+    // Stop any current voice before starting a new one
     window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
+
+    const utter = new SpeechSynthesisUtterance(text);
+    
+    // This part helps the browser find the best Arabic voice available
+    const voices = window.speechSynthesis.getVoices();
+    const arabicVoice = voices.find(v => v.lang.startsWith('ar') || v.lang.includes('Arabic'));
+    
+    if (arabicVoice) {
+      utter.voice = arabicVoice;
+    } else {
+      utter.lang = 'ar-SA';
+    }
+
+    utter.rate = 0.8; // Slightly slower so your dad can hear clearly
+    
+    // A tiny delay helps mobile browsers prepare the audio
+    setTimeout(() => {
+      window.speechSynthesis.speak(utter);
+    }, 50);
   };
 
   const markProgress = (isCorrect, spoken = false) => {
