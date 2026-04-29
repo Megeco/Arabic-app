@@ -212,6 +212,14 @@ export default function App() {
     setInitLoaded(true);
   }, [currentSessionId]);
 
+  useEffect(() => {
+  if (typeof window !== 'undefined') {
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }
+}, []);
+
   useEffect(() => { saveStoredProgress(progress); }, [progress]);
   useEffect(() => { saveStoredMeta(meta); }, [meta]);
 
@@ -243,14 +251,28 @@ export default function App() {
     });
   }, [progress]);
 
-  const speak = (text) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'ar-SA';
-    utter.rate = 0.8;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utter);
-  };
+const speak = (text) => {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+  const utter = new SpeechSynthesisUtterance(text);
+
+  const voices = window.speechSynthesis.getVoices();
+
+  // Try to find Arabic voice
+  const arabicVoice =
+    voices.find(v => v.lang.startsWith('ar')) ||
+    voices.find(v => v.lang === 'ar-SA');
+
+  if (arabicVoice) {
+    utter.voice = arabicVoice;
+  }
+
+  utter.lang = 'ar-SA';
+  utter.rate = 0.8;
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+};
 
   const markProgress = (isCorrect, spoken = false) => {
     setProgress((prev) => {
