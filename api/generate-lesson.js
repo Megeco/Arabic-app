@@ -40,7 +40,10 @@ LESSON REQUIREMENTS
 - Mostly A2/B1, with a little light B2 when appropriate.
 - Keep phrases useful for reading, typing, listening, and light reflection.
 - Avoid slang, awkward literal translation, or unnatural textbook phrasing.
-
+IMPORTANT:
+- Arabic text MUST include full tashkeel (diacritics)
+- Do not return unvowelled Arabic
+- Every Arabic sentence must include short vowels (َ ِ ُ etc.)
 TRACK RULES
 The "track" field must be exactly one of:
 - "Everyday Arabic"
