@@ -72,6 +72,10 @@ ARABIC QUALITY RULES
 - Avoid rare words unless clearly helpful.
 - Avoid duplicate or near-duplicate phrases.
 - Make sure each English meaning accurately matches the Arabic.
+IMPORTANT:
+- Arabic text MUST include full tashkeel (diacritics)
+- Do not return unvowelled Arabic
+- Every Arabic sentence must include short vowels (َ ِ ُ etc.)
 
 VERY IMPORTANT INTERNAL CHECK
 Before returning the final JSON, silently do all of the following:
