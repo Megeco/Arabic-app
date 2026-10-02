@@ -105,7 +105,11 @@ function sanitizeImportedPhrase(p, idx) {
     transliteration: p.transliteration || '',
     english: p.english || '',
     answer: (p.answer || p.english || '').toLowerCase(),
-    notes: p.notes || 'Imported lesson phrase.'
+    notes: p.notes || 'Imported lesson phrase.',
+    words: Array.isArray(p.words) ? p.words.map((w) => ({
+      arabic: w?.arabic || '',
+      english: w?.english || ''
+    })).filter((w) => w.arabic && w.english) : []
   };
 }
 function importLessonJson(rawText) {
@@ -457,6 +461,22 @@ export default function App() {
             <div className="english-big">{current.english}</div>
           </div>
           <div className="center"><Button secondary onClick={() => speak(current.arabic)}><Volume2 size={16} /> Play Arabic</Button></div>
+          {Array.isArray(current.words) && current.words.length > 0 && (
+            <div className="word-meanings" aria-label="Word and phrase meanings">
+              {current.words.map((word, idx) => (
+                <button
+                  type="button"
+                  className="word-meaning-card"
+                  key={`${word.arabic}-${idx}`}
+                  onClick={() => speak(word.arabic)}
+                  title="Tap to hear this word or phrase"
+                >
+                  <span className="word-arabic" dir="rtl">{word.arabic}</span>
+                  <span className="word-english">{word.english}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="stack">
             {voiceSupported && (
               <div className="subpanel">

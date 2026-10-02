@@ -24,7 +24,10 @@ REQUIRED JSON SHAPE
       "arabic": "Arabic text",
       "transliteration": "Readable transliteration",
       "english": "Natural English meaning",
-      "notes": "Short useful note"
+      "notes": "Short useful note",
+      "words": [
+        { "arabic": "مَعْنًى مُفِيدٌ", "english": "useful meaning" }
+      ]
     }
   ]
 }
@@ -60,6 +63,13 @@ FIELD RULES
 - Do not place transliteration inside arabic.
 - "english" must be natural English, not overly literal.
 - "notes" must be short and useful.
+- Every phrase MUST include a "words" array containing a learner-friendly breakdown of the sentence.
+- Break the sentence into useful words or short meaningful chunks, not necessarily every token separately.
+- Each "words" item must contain exactly "arabic" and "english".
+- The Arabic in each word/chunk must preserve full tashkeel.
+- The English should give the meaning of that word/chunk in the context of the sentence.
+- Cover the entire sentence in order, without omitting important words.
+- Prefer meaningful chunks where Arabic grammar attaches words together or where a phrase is best learned as a unit.
 - Keep categories short, like "Daily life", "Reading", "Culture", "Travel", "Reflection", "Proverb".
 
 TRANSLITERATION RULES
@@ -84,8 +94,10 @@ Before returning the final JSON, silently do all of the following:
 4. Check that transliteration contains no Arabic script.
 5. Check that arabic contains no Latin transliteration.
 6. Check that all tracks are from the allowed list exactly.
-7. Check that the JSON is valid.
-8. If any phrase feels awkward, unnatural, or incorrect, rewrite it before outputting.
+7. Check that every source phrase has a complete, accurate "words" breakdown in sentence order.
+8. Check that every word/chunk preserves full tashkeel.
+9. Check that the JSON is valid.
+10. If any phrase feels awkward, unnatural, or incorrect, rewrite it before outputting.
 `.trim();
 
 function extractText(output) {

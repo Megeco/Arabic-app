@@ -70,3 +70,30 @@ button { cursor: pointer; }
   .stats-grid-3 { grid-template-columns: repeat(3, 1fr); }
   .arabic-big { font-size: 1.9rem; }
 }
+
+/* Word-by-word / meaningful-chunk help shown beneath Play Arabic */
+.word-meanings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.word-meaning-card {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8fafc;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #0f172a;
+  text-align: center;
+}
+.word-meaning-card:hover { filter: brightness(0.98); }
+.word-arabic { font-size: 1.2rem; line-height: 1.45; font-weight: 650; }
+.word-english { font-size: 0.82rem; line-height: 1.25; color: #475569; }
+@media (max-width: 380px) {
+  .word-meanings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
